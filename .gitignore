@@ -4,5 +4,4 @@
 #
 /node_modules
 workspace.code-workspace
-/ignore
 /coverage
