@@ -2,7 +2,7 @@ require("dotenv").config();
 const _ = require("lodash");
 const fs = require("fs");
 const token = process.env.TOKEN;
-const serverPublicKey = fs.readFileSync("ignore/public-key.pem");
+const serverPublicKey = fs.readFileSync("ignore/server-public-key.pem");
 const io = require("socket.io-client");
 /**
  * @type {io.Socket}
@@ -14,15 +14,52 @@ const socket = io("http://localhost:3358", {
 const { generateKeyPairSync, publicDecrypt } = require("node:crypto");
 const { privateDecrypt } = require("crypto");
 
-// Generate the key pair
-const { privateKey, publicKey } = generateKeyPairSync("rsa", {
-  modulusLength: 2048,
+// Create a folder named "ignore" if it doesn't exist
+const folderPath = "./ignore";
+if (!fs.existsSync(folderPath)) {
+  fs.mkdirSync(folderPath);
+}
+
+// Function to check if a file exists
+function fileExists(filePath) {
+  try {
+    fs.accessSync(filePath);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+// Function to load key from file or generate new key
+function loadOrGenerateKey(filePath, generateFunction) {
+  if (fileExists(filePath)) {
+    // If the file exists, read the key from the file
+    return fs.readFileSync(filePath, "utf-8");
+  } else {
+    // If the file doesn't exist, generate a new key
+    const key = generateFunction();
+    fs.writeFileSync(filePath, key, { encoding: "utf-8" });
+    return key;
+  }
+}
+
+// Load or generate the private key
+const privateKeyFilePath = "./ignore/private-key.pem";
+const privateKeyPEM = loadOrGenerateKey(privateKeyFilePath, () => {
+  const { privateKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+  });
+  return privateKey.export({ type: "pkcs1", format: "pem" });
 });
 
-// Convert keys to PEM format
-const privateKeyPEM = privateKey.export({ type: "pkcs1", format: "pem" });
-const publicKeyPEM = publicKey.export({ type: "pkcs1", format: "pem" });
-
+// Load or generate the public key
+const publicKeyFilePath = "./ignore/public-key.pem";
+const publicKeyPEM = loadOrGenerateKey(publicKeyFilePath, () => {
+  const { publicKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+  });
+  return publicKey.export({ type: "pkcs1", format: "pem" });
+});
 let myToken;
 
 socket.on("connect", () => {
